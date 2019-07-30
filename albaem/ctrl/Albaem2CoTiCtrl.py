@@ -38,6 +38,12 @@ class Albaem2CoTiCtrl(CounterTimerController):
             Access: DataAccess.ReadWrite,
             Memorize: Memorized
         },
+        'ExtTriggerMode': {
+            Type: str,
+            Description: 'ExtTriggerMode: Hardware or Gate',
+            Access: DataAccess.ReadWrite,
+            Memorize: Memorized
+        },
         'AcquisitionMode': {
             Type: str,
             # TODO define the modes names ?? (I_AVGCURR_A, Q_CHARGE_C)
@@ -85,6 +91,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
         self._latency_time = 0.001  # In fact, it is just 320us
         self._repetitions = 0
         self.formulas = {1: 'value', 2: 'value', 3: 'value', 4:'value'}
+        self._exttriggermode= 'HARDWARE'
 
         self.lock = Lock()
 
@@ -149,7 +156,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
         else:
             # self._log.debug("SetCtrlPar(): setting synchronization "
             #                 "to HardwareTrigger")
-            source = 'HARDWARE'
+            source = self._exttriggermode
             self._repetitions = repetitions
         self.sendCmd('TRIG:MODE %s' % source)
 
@@ -383,6 +390,9 @@ class Albaem2CoTiCtrl(CounterTimerController):
         param = parameter.lower()
         if param == 'exttriggerinput':
             self.sendCmd('TRIG:INPU %s' % value)
+        if param == 'exttriggermode':
+            self._exttriggermode = value
+            self.sendCmd('TRIG:MODE %s' % value)
         elif param == 'acquisitionmode':
             self.sendCmd('ACQU:MODE %s' % value)
         else:
@@ -392,6 +402,8 @@ class Albaem2CoTiCtrl(CounterTimerController):
         param = parameter.lower()
         if param == 'exttriggerinput':
             value = self.sendCmd('TRIG:INPU?')
+        if param == 'exttriggermode':
+            value = self._exttriggermode
         elif param == 'acquisitionmode':
             value = self.sendCmd('ACQU:MODE?')
         else:
