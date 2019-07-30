@@ -143,7 +143,10 @@ class Albaem2CoTiCtrl(CounterTimerController):
         self.index = 0
 
         # Set Integration time in ms
-        val = int(self.itime * 1000)
+        val = self.itime * 1000
+        if val < 0.1:   # minimum integration time 
+            self._log.debug("The minimum integration time is 0.1 ms")
+            val = 0.1
         self.sendCmd('ACQU:TIME %r' % val)
 
         if self._synchronization in [AcqSynch.SoftwareTrigger,
