@@ -19,4 +19,8 @@
 #     along with this program.  If not, see [http://www.gnu.org/licenses/].
 ###############################################################################
 
-"""Main module."""
+"""Albaem sardana controller."""
+
+__author__ = "kits"
+__email__ = "kitscontrols@maxiv.lu.se"
+__version__ = '0.0.0'
