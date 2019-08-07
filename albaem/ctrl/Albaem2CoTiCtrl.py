@@ -149,10 +149,15 @@ class Albaem2CoTiCtrl(CounterTimerController):
             self._repetitions = 1
             source = 'SOFTWARE'
 
-        else:
+        elif self._synchronization == AcqSynch.HardwareTrigger:
             # self._log.debug("SetCtrlPar(): setting synchronization "
             #                 "to HardwareTrigger")
             source = 'HARDWARE'
+            self._repetitions = repetitions
+        elif self._synchronization == AcqSynch.HardwareGate:
+            # self._log.debug("SetCtrlPar(): setting synchronization "
+            #                 "to HardwareGate")
+            source = 'GATE'
             self._repetitions = repetitions
         self.sendCmd('TRIG:MODE %s' % source)
 
