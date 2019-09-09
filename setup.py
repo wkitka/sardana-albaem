@@ -24,7 +24,7 @@ from setuptools import setup, find_packages
 
 def main():
     """Main method collecting all the parameters to setup."""
-    name = "sardana-ctrl-albaem"
+    name = "sardana-albaem"
 
     version = "0.0.6"
 
