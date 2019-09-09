@@ -1,5 +1,5 @@
 ===================
-sardana-ctrl-albaem
+sardana-albaem
 ===================
 
 Description
@@ -16,12 +16,12 @@ Installation
 Licence
 -------
 
-sardana-ctrl-albaem licenced under GPL v3.
+sardana-albaem licenced under GPL v3.
 
 Authors
 -------
 
-sardana-ctrl-albaem was written by kits.
+sardana-albaem was written by kits.
 
 kitscontrols@maxiv.lu.se
 
