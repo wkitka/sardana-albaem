@@ -61,6 +61,12 @@ class Albaem2CoTiCtrl(CounterTimerController):
             Access: DataAccess.ReadWrite,
 
         },
+        "InstantCurrent": {
+            Type: float,
+            Description: 'Channel instant current',
+            Memorize: NotMemorized,
+            Access: DataAccess.ReadOnly
+        },
         "FORMULA":
             {
                 Type: str,
@@ -368,6 +374,9 @@ class Albaem2CoTiCtrl(CounterTimerController):
             elif val.lower() == 'on':
                 ret = True
             return ret
+        elif name == 'instantcurrent':
+            cmd = 'CHAN{0:02d}:INSCurrent?'.format(axis)
+            return eval(self.sendCmd(cmd))
 
     def SetExtraAttributePar(self, axis, name, value):
         if axis == 1:
