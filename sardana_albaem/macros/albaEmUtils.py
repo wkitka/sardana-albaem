@@ -191,7 +191,7 @@ class em_range(Macro):
 
 class em_inversion(Macro):
     """
-        Macro to change the electrometer range.
+        Macro to change the the polarity.
     """
     param_def = [['chns',
                   [['ch', Type.CTExpChannel, None, 'electrometer chn'],
@@ -210,7 +210,7 @@ class em_inversion(Macro):
 
 class em_autorange(Macro):
     """
-        Macro to change the electrometer range.
+        Macro to start the autorange.
     """
     param_def = [['chns',
                   [['ch', Type.CTExpChannel, None, 'electrometer chn'],
@@ -229,7 +229,7 @@ class em_autorange(Macro):
 
 class em_findrange(Macro):
     """
-        Macro to change the electrometer range.
+        Macro to find the range.
     """
     param_def = [['chns',
                   [['ch', Type.CTExpChannel, None, 'electrometer chn'],
