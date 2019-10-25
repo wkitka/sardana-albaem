@@ -1,13 +1,14 @@
 #!/usr/bin/env python
-import socket
 import time
-from threading import Lock
 
 from sardana import State, DataAccess
 from sardana.pool import AcqSynch
 from sardana.pool.controller import CounterTimerController, Type, Access, \
     Description, Memorize, Memorized, NotMemorized
 from sardana.sardanavalue import SardanaValue
+
+from .em2 import Em2
+
 
 __all__ = ['Albaem2CoTiCtrl']
 
@@ -77,16 +78,12 @@ class Albaem2CoTiCtrl(CounterTimerController):
         self._log.debug(msg)
 
         self.ip_config = (self.AlbaEmHost, self.Port)
-        self.albaem_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.albaem_socket.settimeout(1)
-        self.albaem_socket.connect(self.ip_config)
+        self.em2 = Em2(self.AlbaEmHost, self.Port)
         self.index = 0
         self.master = None
         self._latency_time = 0.001  # In fact, it is just 320us
         self._repetitions = 0
         self.formulas = {1: 'value', 2: 'value', 3: 'value', 4:'value'}
-
-        self.lock = Lock()
 
     def AddDevice(self, axis):
         """Add device to controller."""
@@ -162,7 +159,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
         self.sendCmd('TRIG:MODE %s' % source)
 
         # Set Number of Triggers
-        self.sendCmd('ACQU:NTRI %r' % self._repetitions)
+        self.sendCmd('ACQU:NTRIG %r' % self._repetitions)
 
     def PreStartOneCT(self, axis):
         # self._log.debug("PreStartOneCT(%d): Entering...", axis)
@@ -252,98 +249,8 @@ class Albaem2CoTiCtrl(CounterTimerController):
         # self._log.debug("AbortOne(%d): Entering...", axis)
         self.sendCmd('ACQU:STOP')
 
-    def sendCmd(self, cmd, rw=True, size=8096):
-        with self.lock:
-            cmd += ';\n'
-
-            # Protection in case of reconnect the device in the network.
-            # It send the command and in case of broken socket it creates a
-            # new one.
-            retries = 2
-            for i in range(retries):
-                try:
-                    self.albaem_socket.sendall(cmd)
-                    break
-                except socket.timeout:
-                    self._log.debug(
-                        'Socket timeout! reconnecting and commanding '
-                        'again %s' % cmd)
-                    self.albaem_socket = socket.socket(
-                        socket.AF_INET, socket.SOCK_STREAM)
-                    self.albaem_socket.settimeout(1)
-                    self.albaem_socket.connect(self.ip_config)
-            if rw:
-                # WARNING...
-                # socket.recv(size) IS NEVER ENOUGH TO RECEIVE DATA !!!
-                # you should know by the protocol either:
-                # the length of data to be received
-                # or
-                # wait until a special end-of-transfer control
-                # In this case: while not '\r' in data:
-                #                 receive more data...
-                ################################################
-                # AS IT IS SAID IN https://docs.python.org/3/howto/sockets.html
-                # SECTION "3 Using a Socket"
-                #
-                # A protocol like HTTP uses a socket for only one
-                # transfer. The client sends a request, the reads a
-                # reply. That's it. The socket is discarded. This
-                # means that a client can detect the end of the reply
-                # by receiving 0 bytes.
-                #
-                # But if you plan to reuse your socket for further
-                # transfers, you need to realize that there is no
-                # "EOT" (End of Transfer) on a socket. I repeat: if a
-                # socket send or recv returns after handling 0 bytes,
-                # the connection has been broken. If the connection
-                # has not been broken, you may wait on a recv forever,
-                # because the socket will not tell you that there's
-                # nothing more to read (for now). Now if you think
-                # about that a bit, you'll come to realize a
-                # fundamental truth of sockets: messages must either
-                # be fixed length (yuck), or be delimited (shrug), or
-                # indicate how long they are (much better), or end by
-                # shutting down the connection. The choice is entirely
-                # yours, (but some ways are righter than others).
-                ################################################
-                data = ""
-                acquired = False
-                while True:
-                    # SOME TIMEOUTS OCCUR WHEN USING THE WEBPAGE
-                    retries = 5
-                    for i in range(retries):
-                        try:
-                            data += self.albaem_socket.recv(size)
-                            acquired = True
-                            break
-                        except socket.timeout:
-                            self._log.debug(
-                                'Socket timeout! Reading... from  %s '
-                                'command' %cmd[:-2])
-                            self.albaem_socket = socket.socket(
-                                socket.AF_INET, socket.SOCK_STREAM)
-                            self.albaem_socket.settimeout(1)
-                            self.albaem_socket.connect(self.ip_config)
-                            self.albaem_socket.sendall(cmd)
-                            pass
-
-                    if acquired == False:
-                        msg = "Unable to communicate with AlbaEm2, try to " \
-                              "restart the Device"
-                        raise RuntimeError(msg)
-                    try:
-                        if data[-1] == '\n':
-                            break
-                    except Exception as e:
-                        self._log.error(e)
-                        return None
-
-                # NOTE: EM MAY ANSWER WITH MULTIPLE ANSWERS IN CASE OF AN
-                # EXCEPTION
-                # SIMPLY GET THE LAST ONE
-                if data.count(';') > 1:
-                    data = data.rsplit(';')[-2:]
-                return data[:-2]
+    def sendCmd(self, cmd):
+        return self.em2.command(cmd)
 
 ###############################################################################
 #                Axis Extra Attribute Methods
@@ -407,9 +314,9 @@ class Albaem2CoTiCtrl(CounterTimerController):
         return value
 
 
-if __name__ == '__main__':
-    host = 'electproto19'
-    port = 5025
+def main():
+    host = 'electproto38'
+    port = 6025
     ctrl = Albaem2CoTiCtrl('test', {'AlbaEmHost': host, 'Port': port})
     ctrl.AddDevice(1)
     ctrl.AddDevice(2)
@@ -430,3 +337,7 @@ if __name__ == '__main__':
     print(time.time() - t0 - acqtime)
     ctrl.ReadAll()
     print(ctrl.ReadOne(2))
+    return ctrl
+
+if __name__ == '__main__':
+    main()
