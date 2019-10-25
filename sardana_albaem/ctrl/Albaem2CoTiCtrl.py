@@ -95,20 +95,19 @@ class Albaem2CoTiCtrl(CounterTimerController):
     def DeleteDevice(self, axis):
         """Delete device from the controller."""
         self._log.debug("DeleteDevice(%d): Entering...", axis)
-        # self.albaem_socket.close()
 
     def StateAll(self):
         """Read state of all axis."""
         # self._log.debug("StateAll(): Entering...")
-        state = self.sendCmd('ACQU:STAT?')
+        state = self.em2.acquisition_state
 
-        if state in ['STATE_ACQUIRING', 'STATE_RUNNING']:
+        if state in ['ACQUIRING', 'RUNNING']:
             self.state = State.Moving
 
-        elif state == 'STATE_ON':
+        elif state == 'ON':
             self.state = State.On
 
-        elif state == 'STATE_FAULT':
+        elif state == 'FAULT':
             self.state = State.Fault
 
         else:
@@ -133,11 +132,10 @@ class Albaem2CoTiCtrl(CounterTimerController):
         self.index = 0
 
         # Set Integration time in ms
-        val = self.itime * 1000
-        if val < 0.1:   # minimum integration time 
+        if value < 1E-4:   # minimum integration time
             self._log.debug("The minimum integration time is 0.1 ms")
-            val = 0.1
-        self.sendCmd('ACQU:TIME %r' % val)
+            value = 1E-4
+        self.em2.acquisition_time = value
 
         if self._synchronization in [AcqSynch.SoftwareTrigger,
                                      AcqSynch.SoftwareGate]:
@@ -156,10 +154,10 @@ class Albaem2CoTiCtrl(CounterTimerController):
             #                 "to HardwareGate")
             source = 'GATE'
             self._repetitions = repetitions
-        self.sendCmd('TRIG:MODE %s' % source)
+        self.em2.trigger_mode = source
 
         # Set Number of Triggers
-        self.sendCmd('ACQU:NTRIG %r' % self._repetitions)
+        self.nb_points = self._repetitions
 
     def PreStartOneCT(self, axis):
         # self._log.debug("PreStartOneCT(%d): Entering...", axis)
@@ -167,7 +165,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
             self.index = 0
 
         #Check if the communication is stable before start
-        state = self.sendCmd('ACQU:STAT?')
+        state = self.em2.acquisition_state
         if state is None:
             return False
 
@@ -179,15 +177,9 @@ class Albaem2CoTiCtrl(CounterTimerController):
         PreStartOneCT for master channel.
         """
         # self._log.debug("StartAllCT(): Entering...")
-        cmd = 'ACQU:START'
-        if self._synchronization in [AcqSynch.SoftwareTrigger,
-                                     AcqSynch.SoftwareGate]:
-            # The HW needs the software trigger
-            # APPEND SWTRIG TO THE START COMMAND OR SEND ANOTHER COMMAND
-            # TRIG:SWSEt
-            cmd += ' SWTRIG'
-
-        self.sendCmd(cmd)
+        swtrig = self._synchronization in [AcqSynch.SoftwareTrigger,
+                                           AcqSynch.SoftwareGate]
+        self.em2.start_acquisition(swtrig)
         # THIS PROTECTION HAS TO BE REVIEWED
         # FAST INTEGRATION TIMES MAY RAISE WRONG EXCEPTIONS
         # e.g. 10ms ACQTIME -> self.state MAY BE NOT MOVING BECAUSE
@@ -203,20 +195,17 @@ class Albaem2CoTiCtrl(CounterTimerController):
     def ReadAll(self):
         # self._log.debug("ReadAll(): Entering...")
         # TODO Change the ACQU:MEAS command by CHAN:CURR
-        data_ready = int(self.sendCmd('ACQU:NDAT?'))
+        data_ready = self.em2.nb_points_ready
         self.new_data = []
         try:
             if self.index < data_ready:
                 data_len = data_ready - self.index
                 # THIS CONTROLLER IS NOT YET READY FOR TIMESTAMP DATA
-                self.sendCmd('TMST 0')
+                self.timestamp_data = False
 
-                msg = 'ACQU:MEAS? %r,%r' % (self.index - 1, data_len)
-                raw_data = self.sendCmd(msg)
-
-                data = eval(raw_data)
+                data = self.em2.read(self.index - 1, data_len)
                 axis = 1
-                for chn_name, values in data:
+                for chn_name, values in data.items():
 
                     # Apply the formula for each value
                     formula = self.formulas[axis]
@@ -247,10 +236,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
 
     def AbortOne(self, axis):
         # self._log.debug("AbortOne(%d): Entering...", axis)
-        self.sendCmd('ACQU:STOP')
-
-    def sendCmd(self, cmd):
-        return self.em2.command(cmd)
+        self.em2.stop_acquisition()
 
 ###############################################################################
 #                Axis Extra Attribute Methods
@@ -263,31 +249,22 @@ class Albaem2CoTiCtrl(CounterTimerController):
             raise ValueError('The axis 1 does not use the extra attributes')
 
         name = name.lower()
-        axis -= 1
+        axis -= 2
         if name == "range":
-            cmd = 'CHAN{0:02d}:CABO:RANGE?'.format(axis)
-            return self.sendCmd(cmd)
+            return self.em2[axis].range
         elif name == 'inversion':
-            cmd = 'CHAN{0:02d}:CABO:INVE?'.format(axis)
-            val = self.sendCmd(cmd)
-            if val.lower() == 'off':
-                ret = False
-            elif val.lower() == 'on':
-                ret = True
-            return ret
+            return self.em2[axis].inversion
 
     def SetExtraAttributePar(self, axis, name, value):
         if axis == 1:
             raise ValueError('The axis 1 does not use the extra attributes')
 
         name = name.lower()
-        axis -= 1
+        axis -= 2
         if name == "range":
-            cmd = 'CHAN{0:02d}:CABO:RANGE {1}'.format(axis, value)
-            self.sendCmd(cmd)
+            self.em2[axis].range = value
         elif name == 'inversion':
-            cmd = 'CHAN{0:02d}:CABO:INVE {1}'.format(axis, int(value))
-            self.sendCmd(cmd)
+            self.em2[axis].inversion = int(value)
 
 
 ###############################################################################
@@ -297,18 +274,18 @@ class Albaem2CoTiCtrl(CounterTimerController):
     def SetCtrlPar(self, parameter, value):
         param = parameter.lower()
         if param == 'exttriggerinput':
-            self.sendCmd('TRIG:INPU %s' % value)
+            self.em2.trigger_input = value
         elif param == 'acquisitionmode':
-            self.sendCmd('ACQU:MODE %s' % value)
+            self.em2.acquisition_mode = value
         else:
             CounterTimerController.SetCtrlPar(self, parameter, value)
 
     def GetCtrlPar(self, parameter):
         param = parameter.lower()
         if param == 'exttriggerinput':
-            value = self.sendCmd('TRIG:INPU?')
+            value = self.em2.trigger_input
         elif param == 'acquisitionmode':
-            value = self.sendCmd('ACQU:MODE?')
+            value = self.em2.acquisition_mode
         else:
             value = CounterTimerController.GetCtrlPar(self, parameter)
         return value
@@ -328,8 +305,8 @@ def main():
     # ctrl._synchronization = AcqSynch.HardwareTrigger
     acqtime = 1.1
     ctrl.LoadOne(1, acqtime, 10)
-    ctrl.StartAllCT()
     t0 = time.time()
+    ctrl.StartAllCT()
     ctrl.StateAll()
     while ctrl.StateOne(1)[0] != State.On:
         ctrl.StateAll()
