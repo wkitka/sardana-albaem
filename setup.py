@@ -41,7 +41,9 @@ def main():
     packages = find_packages()
 
     # Add your dependencies in the following line.
-    install_requires = ['sardana']
+    install_requires = ['sardana', 'sockio']
+
+    python_requires = '>=3.5'
 
     setup(
         name=name,
@@ -52,7 +54,8 @@ def main():
         license=license,
         url=url,
         packages=packages,
-        install_requires=install_requires
+        install_requires=install_requires,
+        python_requires=python_requires,
     )
 
 if __name__ == "__main__":
