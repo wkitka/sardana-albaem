@@ -77,7 +77,6 @@ class Albaem2CoTiCtrl(CounterTimerController):
         msg = "__init__(%s, %s): Entering...", repr(inst), repr(props)
         self._log.debug(msg)
 
-        self.ip_config = (self.AlbaEmHost, self.Port)
         self.em2 = Em2(self.AlbaEmHost, self.Port)
         self.index = 0
         self.master = None
