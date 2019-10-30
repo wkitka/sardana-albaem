@@ -2,10 +2,17 @@
 ALBA EM2 client
 '''
 
+import sys
 import time
 import logging
 
-from sockio.sio import TCP
+PY34 = sys.version_info >= (3, 4)
+
+if PY34:
+    from sockio.sio import TCP
+else:
+    from em2_sock import TCP
+
 
 class Em2Error(Exception):
     pass
