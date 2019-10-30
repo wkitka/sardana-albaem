@@ -84,7 +84,11 @@ class Em2:
         self.host = host
         self.port = port
         self._sock = TCP(host, port)
+        # TODO: Remove when sardana allows to use the configuration file
+        logging.getLogger('sockio').setLevel(logging.INFO)
         self.log = logging.getLogger('em2.Em2({}:{})'.format(host, port))
+        self.log.setLevel(logging.INFO)
+
         self.channels = [Channel(self, i) for i in range(1, 5)]
 
     def __getitem__(self, i):
