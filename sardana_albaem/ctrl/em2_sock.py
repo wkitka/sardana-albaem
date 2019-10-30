@@ -46,10 +46,11 @@ def ensure_closed_on_error(f):
 
 class TCP(object):
 
-    def __init__(self, host, port):
+    def __init__(self, host, port, timeout=1.0):
         self.host = host
         self.port = port
         self.conn = None
+        self.timeout = timeout
         self._log = log.getChild('TCP({}:{})'.format(host, port))
         self._lock = threading.Lock()
         self.connection_counter = 0
@@ -61,6 +62,7 @@ class TCP(object):
                         self.connection_counter + 1)
         self.conn = socket.create_connection((self.host, self.port))
         self.conn.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+        self.conn.settimeout(self.timeout)
         self.fobj = self.conn.makefile('rwb', 0)
         self.connection_counter += 1
 
