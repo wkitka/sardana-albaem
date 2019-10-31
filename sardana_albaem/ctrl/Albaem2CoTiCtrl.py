@@ -234,7 +234,9 @@ class Albaem2CoTiCtrl(CounterTimerController):
             return values
 
     def AbortOne(self, axis):
-        self._em2.stop_acquisition()
+        if not self._aborted_flg:
+            self._aborted_flg = True
+            self._em2.stop_acquisition()
 
 ###############################################################################
 #                Axis Extra Attribute Methods

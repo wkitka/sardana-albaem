@@ -234,7 +234,7 @@ class Em2:
         self.command('ACQU:START' + (' SWTRIG' if soft_trigger else ''))
 
     def stop_acquisition(self):
-        return self.command('ACQU:STOP')
+        return self.command('ACQU:STOP True')
 
     @property
     def data(self):
