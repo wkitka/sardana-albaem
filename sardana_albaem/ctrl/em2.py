@@ -35,7 +35,7 @@ class Channel:
 
     @range.setter
     def range(self, value):
-        return self.em.command('CHAN{:02d}:CABO:RANGE {}'.format(self.nb, value))
+        return self.em.command('CHAN{:02d}:CABO:RANGE {0}'.format(self.nb, value))
 
     @property
     def inversion(self):
@@ -44,7 +44,7 @@ class Channel:
     @inversion.setter
     def inversion(self, value):
         value = 'Off' if value in (0, 'off', 'OFF', 'Off') else 'On'
-        return self.em.command('CHAN{:02d}:CABO:INVE {}'.format(self.nb, value))
+        return self.em.command('CHAN{:02d}:CABO:INVE {0}'.format(self.nb, value))
 
     @property
     def current(self):
@@ -110,7 +110,7 @@ class Em2:
         self._sock = TCP(host, port)
         # TODO: Remove when sardana allows to use the configuration file
         logging.getLogger('sockio').setLevel(logging.INFO)
-        self.log = logging.getLogger('em2.Em2({}:{})'.format(host, port))
+        self.log = logging.getLogger('em2.Em2({0}:{0})'.format(host, port))
         self.log.setLevel(logging.INFO)
 
         self.channels = [Channel(self, i) for i in range(1, 5)]
@@ -149,7 +149,7 @@ class Em2:
 
     @acquisition_time.setter
     def acquisition_time(self, t):
-        return self.command('ACQU:TIME {}'.format(t*1E3))
+        return self.command('ACQU:TIME {0}'.format(t*1E3))
 
     @property
     def nb_points(self):
@@ -157,7 +157,7 @@ class Em2:
 
     @nb_points.setter
     def nb_points(self, value):
-        return self.command('ACQU:NTRIG {}'.format(value))
+        return self.command('ACQU:NTRIG {0}'.format(value))
 
     @property
     def nb_points_ready(self):
@@ -169,7 +169,7 @@ class Em2:
 
     @trigger_input.setter
     def trigger_input(self, value):
-        return self.command('TRIG:INPU {}'.format(value))
+        return self.command('TRIG:INPU {0}'.format(value))
 
     @property
     def trigger_mode(self):
@@ -177,7 +177,7 @@ class Em2:
 
     @trigger_mode.setter
     def trigger_mode(self, value):
-        return self.command('TRIG:MODE {}'.format(value))
+        return self.command('TRIG:MODE {0}'.format(value))
 
     @property
     def trigger_polarity(self):
@@ -185,7 +185,7 @@ class Em2:
 
     @trigger_polarity.setter
     def trigger_polarity(self, value):
-        return self.command('TRIG:POLA {}'.format(value))
+        return self.command('TRIG:POLA {0}'.format(value))
 
     @property
     def trigger_polarity(self):
@@ -193,7 +193,7 @@ class Em2:
 
     @trigger_polarity.setter
     def trigger_polarity(self, value):
-        return self.command('TRIG:POLA {}'.format(value))
+        return self.command('TRIG:POLA {0}'.format(value))
 
     @property
     def trigger_precision(self):
@@ -201,7 +201,7 @@ class Em2:
 
     @trigger_precision.setter
     def trigger_precision(self, value):
-        return self.command('TRIG:PREC {}'.format('True' if value else 'False'))
+        return self.command('TRIG:PREC {0}'.format('True' if value else 'False'))
 
     @property
     def trigger_delay(self):
@@ -209,7 +209,7 @@ class Em2:
 
     @trigger_delay.setter
     def trigger_delay(self, value):
-        return self.command('TRIG:DELA {}'.format(value*1E3))
+        return self.command('TRIG:DELA {0}'.format(value*1E3))
 
     def software_trigger(self):
         return self.command('TRIG:SWSE True')
@@ -220,7 +220,7 @@ class Em2:
 
     @acquisition_mode.setter
     def acquisition_mode(self, value):
-        return self.command('ACQU:MODE {}'.format(value))
+        return self.command('ACQU:MODE {0}'.format(value))
 
     @property
     def timestamp_data(self):
@@ -228,7 +228,7 @@ class Em2:
 
     @timestamp_data.setter
     def timestamp_data(self, value):
-        return self.command('TMST {}'.format('True' if value else 'False'))
+        return self.command('TMST {0}'.format('True' if value else 'False'))
 
     def start_acquisition(self, soft_trigger=True):
         self.command('ACQU:START' + (' SWTRIG' if soft_trigger else ''))
@@ -259,7 +259,7 @@ def acquire(em, acq_time=None, nb_points=None, read=True):
     except KeyboardInterrupt:
         em.stop_acquisition()
     finally:
-        logging.info('took {}'.format(time.time()-start))
+        logging.info('took {0}'.format(time.time()-start))
 
 
 def _acquire(em, acq_time=None, nb_points=None, read=True):
@@ -271,7 +271,7 @@ def _acquire(em, acq_time=None, nb_points=None, read=True):
     time.sleep(max(acq_time-0.1, 0.001))
     while em.acquisition_state != 'ON':
         time.sleep(0.01)
-    logging.info('acq took {}'.format(time.time()-start))
+    logging.info('acq took {0}'.format(time.time()-start))
     if read:
         return em.read_all()
 

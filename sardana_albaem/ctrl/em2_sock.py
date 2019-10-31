@@ -51,7 +51,7 @@ class TCP(object):
         self.port = port
         self.conn = None
         self.timeout = timeout
-        self._log = log.getChild('TCP({}:{})'.format(host, port))
+        self._log = log.getChild('TCP({0}:{1})'.format(host, port))
         self._lock = threading.Lock()
         self.connection_counter = 0
 
