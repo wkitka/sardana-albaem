@@ -85,6 +85,23 @@ Trigger:
 {channels}"""
 
 
+class AcquisitionData:
+
+    def __init__(self, em2):
+        self.em2 = em2
+
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            start, nb = index, 1
+        elif isinstance(index, slice):
+            start = index.start or 0
+            nb = None if index.stop is None else (index.stop - start)
+        return self.em2.read(start, nb)
+
+    def __len__(self):
+        return self.em2.nb_points_ready
+
+
 class Em2:
 
     def __init__(self, host, port=5025):
@@ -219,6 +236,9 @@ class Em2:
     def stop_acquisition(self):
         return self.command('ACQU:STOP')
 
+    @property
+    def data(self):
+        return AcquisitionData(self)
 
     def read(self, start_pos=0, nb=None):
         start_pos -= 1
