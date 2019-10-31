@@ -219,12 +219,13 @@ class Em2:
     def stop_acquisition(self):
         return self.command('ACQU:STOP')
 
-    def read(self, index, nb):
-        return dict(eval(self.command('ACQU:MEAS? {},{}'.format(index, nb))))
 
-    def read_all(self):
-        nb_points = self.nb_points_ready
-        return self.read(-1, nb_points)
+    def read(self, start_pos=0, nb=None):
+        start_pos -= 1
+        cmd = 'ACQU:MEAS? {0}'.format(start_pos)
+        if nb is not None:
+            cmd += ',{0}'.format(nb)
+        return dict(eval(self.command(cmd)))
 
     def __repr__(self):
         channels = '\n'.join(repr(c) for c in self.channels)

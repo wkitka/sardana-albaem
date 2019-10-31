@@ -202,8 +202,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
         if self._last_index_point < data_ready:
             data_len = data_ready - self._last_index_point
             self._points_read_per_start += data_len
-            self._new_data = self._em2.read(self._last_index_point - 1,
-                                            data_len)
+            self._new_data = self._em2.read(self._last_index_point, data_len)
             try:
                 for axis in range(1, 5):
                     formula = self.formulas[axis]
