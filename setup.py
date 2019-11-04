@@ -44,9 +44,7 @@ def main():
     packages = find_packages()
 
     # Add your dependencies in the following line.
-    install_requires = ['sardana']
-    if PY34:
-        install_requires.append('sockio')
+    install_requires = ['sardana', 'sockio']
 
     python_requires = '>=2.7'
 
