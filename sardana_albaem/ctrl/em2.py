@@ -11,7 +11,7 @@ PY34 = sys.version_info >= (3, 4)
 if PY34:
     from sockio.sio import TCP
 else:
-    from em2_sock import TCP
+    from sockio.py2 import TCP
 
 
 class Em2Error(Exception):
