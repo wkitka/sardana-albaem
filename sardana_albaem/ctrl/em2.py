@@ -31,36 +31,36 @@ class Channel:
 
     @property
     def range(self):
-        return self.em.command('CHAN{:02d}:CABO:RANGE?'.format(self.nb))
+        return self.em.command('CHAN{0:02d}:CABO:RANGE?'.format(self.nb))
 
     @range.setter
     def range(self, value):
-        return self.em.command('CHAN{:02d}:CABO:RANGE {0}'.format(self.nb, value))
+        return self.em.command('CHAN{0:02d}:CABO:RANGE {1}'.format(self.nb, value))
 
     @property
     def inversion(self):
-        return self.em.command('CHAN{:02d}:CABO:INVE?'.format(self.nb)) == 'On'
+        return self.em.command('CHAN{0:02d}:CABO:INVE?'.format(self.nb)) == 'On'
 
     @inversion.setter
     def inversion(self, value):
         value = 'Off' if value in (0, 'off', 'OFF', 'Off') else 'On'
-        return self.em.command('CHAN{:02d}:CABO:INVE {0}'.format(self.nb, value))
+        return self.em.command('CHAN{0:02d}:CABO:INVE {1}'.format(self.nb, value))
 
     @property
     def current(self):
-        return self.em.command('CHAN{:02d}:INSC?'.format(self.nb))
+        return self.em.command('CHAN{0:02d}:INSC?'.format(self.nb))
 
     @property
     def voltage(self):
-        return eval(self.em.command('CHAN{:02d}:INSV?'.format(self.nb)))
+        return eval(self.em.command('CHAN{0:02d}:INSV?'.format(self.nb)))
 
     @property
     def voltage_buffer(self):
-        return eval(self.em.command('CHAN{:02d}:VOLT?'.format(self.nb)))
+        return eval(self.em.command('CHAN{0:02d}:VOLT?'.format(self.nb)))
 
     @property
     def current_buffer(self):
-        return eval(self.em.command('CHAN{:02d}:CURR?'.format(self.nb)))
+        return eval(self.em.command('CHAN{0:02d}:CURR?'.format(self.nb)))
 
     def __repr__(self):
         return CHANNEL_TEMPLATE.format(o=self)
@@ -110,7 +110,7 @@ class Em2:
         self._sock = TCP(host, port)
         # TODO: Remove when sardana allows to use the configuration file
         logging.getLogger('sockio').setLevel(logging.INFO)
-        self.log = logging.getLogger('em2.Em2({0}:{0})'.format(host, port))
+        self.log = logging.getLogger('em2.Em2({0}:{1})'.format(host, port))
         self.log.setLevel(logging.INFO)
 
         self.channels = [Channel(self, i) for i in range(1, 5)]
