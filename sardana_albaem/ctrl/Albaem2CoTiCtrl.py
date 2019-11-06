@@ -62,6 +62,12 @@ class Albaem2CoTiCtrl(CounterTimerController):
             Access: DataAccess.ReadWrite,
 
         },
+        "InstantCurrent": {
+            Type: float,
+            Description: 'Channel instant current',
+            Memorize: NotMemorized,
+            Access: DataAccess.ReadOnly
+        },
         "FORMULA":
             {
                 Type: str,
@@ -254,6 +260,10 @@ class Albaem2CoTiCtrl(CounterTimerController):
             return self._em2[axis].range
         elif name == 'inversion':
             return self._em2[axis].inversion
+        elif name == 'instantcurrent':
+            # TODO Implement on em2 object
+            return self._em2[axis].instantcurrent
+
 
     def SetExtraAttributePar(self, axis, name, value):
         if axis == 1:
