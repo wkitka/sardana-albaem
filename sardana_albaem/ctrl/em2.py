@@ -23,7 +23,9 @@ Channel {o.nb}:
   Range: {o.range}
   inverson: {o.inversion}"""
 
-class Channel:
+
+# TODO: Remove old style class implementation when we go to py3
+class Channel(object):
 
     def __init__(self, em, nb):
         self.em = em
@@ -85,7 +87,8 @@ Trigger:
 {channels}"""
 
 
-class AcquisitionData:
+# TODO: Remove old style class implementation when we go to py3
+class AcquisitionData(object):
 
     def __init__(self, em2):
         self.em2 = em2
@@ -102,7 +105,8 @@ class AcquisitionData:
         return self.em2.nb_points_ready
 
 
-class Em2:
+# TODO: Remove old style class implementation when we go to py3
+class Em2(object):
 
     def __init__(self, host, port=5025):
         self.host = host
