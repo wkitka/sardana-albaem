@@ -261,8 +261,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
         elif name == 'inversion':
             return self._em2[axis].inversion
         elif name == 'instantcurrent':
-            # TODO Implement on em2 object
-            return self._em2[axis].instantcurrent
+            return self._em2[axis].current
 
 
     def SetExtraAttributePar(self, axis, name, value):
