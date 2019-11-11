@@ -19,7 +19,10 @@
 #     along with this program.  If not, see [http://www.gnu.org/licenses/].
 ###############################################################################
 
+import sys
 from setuptools import setup, find_packages
+
+PY34 = sys.version_info >= (3, 4)
 
 
 def main():
@@ -41,7 +44,9 @@ def main():
     packages = find_packages()
 
     # Add your dependencies in the following line.
-    install_requires = ['sardana']
+    install_requires = ['sardana', 'sockio']
+
+    python_requires = '>=2.7'
 
     setup(
         name=name,
@@ -52,7 +57,8 @@ def main():
         license=license,
         url=url,
         packages=packages,
-        install_requires=install_requires
+        install_requires=install_requires,
+        python_requires=python_requires,
     )
 
 if __name__ == "__main__":

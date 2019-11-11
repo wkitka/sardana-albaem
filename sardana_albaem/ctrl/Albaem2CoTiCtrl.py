@@ -1,13 +1,14 @@
 #!/usr/bin/env python
-import socket
 import time
-from threading import Lock
 
 from sardana import State, DataAccess
 from sardana.pool import AcqSynch
 from sardana.pool.controller import CounterTimerController, Type, Access, \
     Description, Memorize, Memorized, NotMemorized
 from sardana.sardanavalue import SardanaValue
+
+from em2 import Em2
+
 
 __all__ = ['Albaem2CoTiCtrl']
 
@@ -82,104 +83,112 @@ class Albaem2CoTiCtrl(CounterTimerController):
         msg = "__init__(%s, %s): Entering...", repr(inst), repr(props)
         self._log.debug(msg)
 
-        self.ip_config = (self.AlbaEmHost, self.Port)
-        self.albaem_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.albaem_socket.settimeout(1)
-        self.albaem_socket.connect(self.ip_config)
-        self.index = 0
-        self.master = None
+        self._em2 = Em2(self.AlbaEmHost, self.Port)
+        self._synchronization = AcqSynch.SoftwareTrigger
         self._latency_time = 0.001  # In fact, it is just 320us
-        self._repetitions = 0
-        self.formulas = {1: 'value', 2: 'value', 3: 'value', 4:'value'}
+        self._skipp_start = False
+        self._aborted_flg = False
+        self._started_flg = False
+        self._points_read_per_start = 0
+        self._nb_points_per_start = 0
+        self._last_index_point = 0
+        self._new_data = {}
+        self._nb_start = 0
+        self._state = State.On
+        self._status = 'On'
 
-        self.lock = Lock()
+        self.formulas = {1: 'value', 2: 'value', 3: 'value', 4: 'value'}
 
-    def AddDevice(self, axis):
-        """Add device to controller."""
-        self._log.debug("AddDevice(%d): Entering...", axis)
-        # count buffer for the continuous scan
-        if axis != 1:
-            self.index = 0
+    def _clean_variables(self):
+        status = self._em2.acquisition_state
+        if status in ['ACQUIRING', 'RUNNING']:
+            self._em2.stop_acquisition()
 
-    def DeleteDevice(self, axis):
-        """Delete device from the controller."""
-        self._log.debug("DeleteDevice(%d): Entering...", axis)
-        # self.albaem_socket.close()
+        self._skipp_start = False
+        self._last_index_point = 0
+        self._new_data = {}
+        self._aborted_flg = False
+        self._started_flg = False
+        self._nb_points = 0
+        self._points_read_per_start = 0
+        self._nb_points_per_start = 0
 
     def StateAll(self):
         """Read state of all axis."""
-        # self._log.debug("StateAll(): Entering...")
-        state = self.sendCmd('ACQU:STAT?')
+        status = self._em2.acquisition_state
+        self._log.debug('StateAll() HW status %s', status)
+        allowed_states = ['ACQUIRING', 'RUNNING', 'ON',
+                          'FAULT']
+        if status == 'FAULT' or status not in allowed_states:
+            self._state = State.Fault
+            self._status = status
+            return
 
-        if state in ['STATE_ACQUIRING', 'STATE_RUNNING']:
-            self.state = State.Moving
-
-        elif state == 'STATE_ON':
-            self.state = State.On
-
-        elif state == 'STATE_FAULT':
-            self.state = State.Fault
-
+        # The state depends of the number of point read per start
+        read_ready = self._points_read_per_start == self._nb_points_per_start
+        if read_ready or self._aborted_flg:
+            self._state = State.On
+            self._status = 'ON'
         else:
-            self.state = State.Fault
-            self._log.debug("StateAll(): %r %r UNKNWON STATE: "
-                            "%s" % self.state, self.status, state)
-        self.status = state
-        # self._log.debug("StateAll(): %r %r" %(self.state, self.status))
+            self._state = State.Moving
+            self._status = 'MOVING'
+            if status == 'ON':
+                self.ReadAll()
+                self._log.warning('Data not ready and state is ON')
 
     def StateOne(self, axis):
         """Read state of one axis."""
-        # self._log.debug("StateOne(%d): Entering...", axis)
-        return self.state, self.status
+        return self._state, self._status
 
-    def LoadOne(self, axis, value, repetitions):
-        # self._log.debug("LoadOne(%d, %f, %d): Entering...", axis, value,
-        #                 repetitions)
-        if axis != 1:
-            raise Exception('The master channel should be the axis 1')
+    def PrepareOne(self, axis, value, repetitions, latency, nb_starts):
+        # Protection for the integration time
+        if value < 1e-4:
+            raise ValueError('The minimum integration time is 0.1 ms')
 
-        self.itime = value
-        self.index = 0
+        if self._synchronization in [AcqSynch.SoftwareStart,
+                                     AcqSynch.HardwareStart]:
+            raise ValueError('The Start synchronization is not allowed yet')
 
-        # Set Integration time in ms
-        val = self.itime * 1000
-        if val < 0.1:   # minimum integration time 
-            self._log.debug("The minimum integration time is 0.1 ms")
-            val = 0.1
-        self.sendCmd('ACQU:TIME %r' % val)
+        self._clean_variables()
+        self._nb_points_per_start = repetitions
+        nb_points = repetitions * nb_starts
+        self._acq_time = value
+        latency_time = latency
 
-        if self._synchronization in [AcqSynch.SoftwareTrigger,
-                                     AcqSynch.SoftwareGate]:
-            # self._log.debug("SetCtrlPar(): setting synchronization "
-            #                 "to SoftwareTrigger")
-            self._repetitions = 1
-            source = 'SOFTWARE'
+        # Select the trigger mode according to the synchronization mode
 
+        if self._synchronization in [AcqSynch.SoftwareGate,
+                                     AcqSynch.SoftwareTrigger]:
+
+            mode = 'SOFTWARE'
         elif self._synchronization == AcqSynch.HardwareTrigger:
-            # self._log.debug("SetCtrlPar(): setting synchronization "
-            #                 "to HardwareTrigger")
-            source = 'HARDWARE'
-            self._repetitions = repetitions
+            mode = 'HARDWARE'
+            self._skipp_start = True
         elif self._synchronization == AcqSynch.HardwareGate:
-            # self._log.debug("SetCtrlPar(): setting synchronization "
-            #                 "to HardwareGate")
-            source = 'GATE'
-            self._repetitions = repetitions
-        self.sendCmd('TRIG:MODE %s' % source)
+            mode = 'GATE'
+            self._skipp_start = True
 
-        # Set Number of Triggers
-        self.sendCmd('ACQU:NTRI %r' % self._repetitions)
+        # Configure the electrometer
+        self._em2.acquisition_time = self._acq_time
+        self._em2.trigger_mode = mode
+        self._em2.nb_points = nb_points
+        # This controller is not ready to use the timestamp
+        self._em2.timestamp_data = False
+
+        # Arm the electromter
+        self._em2.start_acquisition(soft_trigger=False)
+
+    def LoadOne(self, axis, integ_time, repetitions, latency_time):
+        # Configure the electrometer on the PrepareOne
+        pass
 
     def PreStartOneCT(self, axis):
-        # self._log.debug("PreStartOneCT(%d): Entering...", axis)
-        if axis != 1:
-            self.index = 0
-
-        #Check if the communication is stable before start
-        state = self.sendCmd('ACQU:STAT?')
-        if state is None:
+        # Check if the communication is stable before start
+        try:
+            _ = self._em2.acquisition_state
+        except Exception:
+            self._log.error('There is not connection to the electrometer.')
             return False
-
         return True
 
     def StartAllCT(self):
@@ -187,169 +196,53 @@ class Albaem2CoTiCtrl(CounterTimerController):
         Starting the acquisition is done only if before was called
         PreStartOneCT for master channel.
         """
-        # self._log.debug("StartAllCT(): Entering...")
-        cmd = 'ACQU:START'
-        if self._synchronization in [AcqSynch.SoftwareTrigger,
-                                     AcqSynch.SoftwareGate]:
-            # The HW needs the software trigger
-            # APPEND SWTRIG TO THE START COMMAND OR SEND ANOTHER COMMAND
-            # TRIG:SWSEt
-            cmd += ' SWTRIG'
+        self._points_read_per_start = 0
+        if self._skipp_start:
+            return
 
-        self.sendCmd(cmd)
-        # THIS PROTECTION HAS TO BE REVIEWED
-        # FAST INTEGRATION TIMES MAY RAISE WRONG EXCEPTIONS
-        # e.g. 10ms ACQTIME -> self.state MAY BE NOT MOVING BECAUSE
-        # FINISHED, NOT FAILED
-        self.StateAll()
-        t0 = time.time()
-        while (self.state != State.Moving):
-            if time.time() - t0 > 3:
-                raise Exception('The HW did not start the acquisition')
-            self.StateAll()
-        return True
+        self._em2.software_trigger()
 
     def ReadAll(self):
-        # self._log.debug("ReadAll(): Entering...")
         # TODO Change the ACQU:MEAS command by CHAN:CURR
-        data_ready = int(self.sendCmd('ACQU:NDAT?'))
-        self.new_data = []
-        try:
-            if self.index < data_ready:
-                data_len = data_ready - self.index
-                # THIS CONTROLLER IS NOT YET READY FOR TIMESTAMP DATA
-                self.sendCmd('TMST 0')
-
-                msg = 'ACQU:MEAS? %r,%r' % (self.index - 1, data_len)
-                raw_data = self.sendCmd(msg)
-
-                data = eval(raw_data)
-                axis = 1
-                for chn_name, values in data:
-
-                    # Apply the formula for each value
+        data_ready = self._em2.nb_points_ready
+        if self._last_index_point < data_ready:
+            data_len = data_ready - self._last_index_point
+            self._points_read_per_start += data_len
+            self._new_data = self._em2.read(self._last_index_point, data_len)
+            try:
+                for axis in range(1, 5):
                     formula = self.formulas[axis]
-                    formula = formula.lower()
-                    values_formula = [eval(formula, {'value': val}) for val
-                                      in values]
-                    self.new_data.append(values_formula)
-                    axis +=1
-                time_data = [self.itime] * len(self.new_data[0])
-                self.new_data.insert(0, time_data)
-                if self._repetitions != 1:
-                    self.index += len(time_data)
+                    if formula.lower() != 'value':
+                        channel = 'CHAN0{0}'.format(axis)
+                        values = self._new_data[channel]
+                        values = [eval(formula, {'value': val}) for val
+                                  in values]
+                        self._new_data[channel] = values
 
-        except Exception as e:
-            raise Exception("ReadAll error: %s: " + str(e))
+                self._new_data['CHAN00'] = [self._acq_time] * data_len
+                self._last_index_point = data_ready
+            except Exception as e:
+                raise Exception('ReadAll error: {0}'.format(e))
 
     def ReadOne(self, axis):
         # self._log.debug("ReadOne(%d): Entering...", axis)
-        if len(self.new_data) == 0:
+        if len(self._new_data) == 0:
             return None
+        axis -= 1
+        channel = 'CHAN0{0}'.format(axis)
+        values = list(self._new_data[channel])
 
         if self._synchronization in [AcqSynch.SoftwareTrigger,
                                      AcqSynch.SoftwareGate]:
-            return SardanaValue(self.new_data[axis - 1][0])
+            return SardanaValue(values[0])
         else:
-            val = self.new_data[axis - 1]
-            return val
+            self._new_data[channel] = []
+            return values
 
     def AbortOne(self, axis):
-        # self._log.debug("AbortOne(%d): Entering...", axis)
-        self.sendCmd('ACQU:STOP')
-
-    def sendCmd(self, cmd, rw=True, size=8096):
-        with self.lock:
-            cmd += ';\n'
-
-            # Protection in case of reconnect the device in the network.
-            # It send the command and in case of broken socket it creates a
-            # new one.
-            retries = 2
-            for i in range(retries):
-                try:
-                    self.albaem_socket.sendall(cmd)
-                    break
-                except socket.timeout:
-                    self._log.debug(
-                        'Socket timeout! reconnecting and commanding '
-                        'again %s' % cmd)
-                    self.albaem_socket = socket.socket(
-                        socket.AF_INET, socket.SOCK_STREAM)
-                    self.albaem_socket.settimeout(1)
-                    self.albaem_socket.connect(self.ip_config)
-            if rw:
-                # WARNING...
-                # socket.recv(size) IS NEVER ENOUGH TO RECEIVE DATA !!!
-                # you should know by the protocol either:
-                # the length of data to be received
-                # or
-                # wait until a special end-of-transfer control
-                # In this case: while not '\r' in data:
-                #                 receive more data...
-                ################################################
-                # AS IT IS SAID IN https://docs.python.org/3/howto/sockets.html
-                # SECTION "3 Using a Socket"
-                #
-                # A protocol like HTTP uses a socket for only one
-                # transfer. The client sends a request, the reads a
-                # reply. That's it. The socket is discarded. This
-                # means that a client can detect the end of the reply
-                # by receiving 0 bytes.
-                #
-                # But if you plan to reuse your socket for further
-                # transfers, you need to realize that there is no
-                # "EOT" (End of Transfer) on a socket. I repeat: if a
-                # socket send or recv returns after handling 0 bytes,
-                # the connection has been broken. If the connection
-                # has not been broken, you may wait on a recv forever,
-                # because the socket will not tell you that there's
-                # nothing more to read (for now). Now if you think
-                # about that a bit, you'll come to realize a
-                # fundamental truth of sockets: messages must either
-                # be fixed length (yuck), or be delimited (shrug), or
-                # indicate how long they are (much better), or end by
-                # shutting down the connection. The choice is entirely
-                # yours, (but some ways are righter than others).
-                ################################################
-                data = ""
-                acquired = False
-                while True:
-                    # SOME TIMEOUTS OCCUR WHEN USING THE WEBPAGE
-                    retries = 5
-                    for i in range(retries):
-                        try:
-                            data += self.albaem_socket.recv(size)
-                            acquired = True
-                            break
-                        except socket.timeout:
-                            self._log.debug(
-                                'Socket timeout! Reading... from  %s '
-                                'command' %cmd[:-2])
-                            self.albaem_socket = socket.socket(
-                                socket.AF_INET, socket.SOCK_STREAM)
-                            self.albaem_socket.settimeout(1)
-                            self.albaem_socket.connect(self.ip_config)
-                            self.albaem_socket.sendall(cmd)
-                            pass
-
-                    if acquired == False:
-                        msg = "Unable to communicate with AlbaEm2, try to " \
-                              "restart the Device"
-                        raise RuntimeError(msg)
-                    try:
-                        if data[-1] == '\n':
-                            break
-                    except Exception as e:
-                        self._log.error(e)
-                        return None
-
-                # NOTE: EM MAY ANSWER WITH MULTIPLE ANSWERS IN CASE OF AN
-                # EXCEPTION
-                # SIMPLY GET THE LAST ONE
-                if data.count(';') > 1:
-                    data = data.rsplit(';')[-2:]
-                return data[:-2]
+        if not self._aborted_flg:
+            self._aborted_flg = True
+            self._em2.stop_acquisition()
 
 ###############################################################################
 #                Axis Extra Attribute Methods
@@ -364,19 +257,12 @@ class Albaem2CoTiCtrl(CounterTimerController):
         name = name.lower()
         axis -= 1
         if name == "range":
-            cmd = 'CHAN{0:02d}:CABO:RANGE?'.format(axis)
-            return self.sendCmd(cmd)
+            return self._em2[axis].range
         elif name == 'inversion':
-            cmd = 'CHAN{0:02d}:CABO:INVE?'.format(axis)
-            val = self.sendCmd(cmd)
-            if val.lower() == 'off':
-                ret = False
-            elif val.lower() == 'on':
-                ret = True
-            return ret
+            return self._em2[axis].inversion
         elif name == 'instantcurrent':
-            cmd = 'CHAN{0:02d}:INSCurrent?'.format(axis)
-            return eval(self.sendCmd(cmd))
+            return self._em2[axis].current
+
 
     def SetExtraAttributePar(self, axis, name, value):
         if axis == 1:
@@ -385,11 +271,9 @@ class Albaem2CoTiCtrl(CounterTimerController):
         name = name.lower()
         axis -= 1
         if name == "range":
-            cmd = 'CHAN{0:02d}:CABO:RANGE {1}'.format(axis, value)
-            self.sendCmd(cmd)
+            self._em2[axis].range = value
         elif name == 'inversion':
-            cmd = 'CHAN{0:02d}:CABO:INVE {1}'.format(axis, int(value))
-            self.sendCmd(cmd)
+            self._em2[axis].inversion = int(value)
 
 
 ###############################################################################
@@ -399,26 +283,26 @@ class Albaem2CoTiCtrl(CounterTimerController):
     def SetCtrlPar(self, parameter, value):
         param = parameter.lower()
         if param == 'exttriggerinput':
-            self.sendCmd('TRIG:INPU %s' % value)
+            self._em2.trigger_input = value
         elif param == 'acquisitionmode':
-            self.sendCmd('ACQU:MODE %s' % value)
+            self._em2.acquisition_mode = value
         else:
             CounterTimerController.SetCtrlPar(self, parameter, value)
 
     def GetCtrlPar(self, parameter):
         param = parameter.lower()
         if param == 'exttriggerinput':
-            value = self.sendCmd('TRIG:INPU?')
+            value = self._em2.trigger_input
         elif param == 'acquisitionmode':
-            value = self.sendCmd('ACQU:MODE?')
+            value = self._em2.acquisition_mode
         else:
             value = CounterTimerController.GetCtrlPar(self, parameter)
         return value
 
 
-if __name__ == '__main__':
-    host = 'electproto19'
-    port = 5025
+def main():
+    host = 'electproto38'
+    port = 6025
     ctrl = Albaem2CoTiCtrl('test', {'AlbaEmHost': host, 'Port': port})
     ctrl.AddDevice(1)
     ctrl.AddDevice(2)
@@ -429,9 +313,10 @@ if __name__ == '__main__':
     ctrl._synchronization = AcqSynch.SoftwareTrigger
     # ctrl._synchronization = AcqSynch.HardwareTrigger
     acqtime = 1.1
-    ctrl.LoadOne(1, acqtime, 10)
-    ctrl.StartAllCT()
+    ctrl.PrepareOne(1, acqtime, 1, 0.1, 1)
+    ctrl.LoadOne(1, acqtime, 10, 1)
     t0 = time.time()
+    ctrl.StartAllCT()
     ctrl.StateAll()
     while ctrl.StateOne(1)[0] != State.On:
         ctrl.StateAll()
@@ -439,3 +324,7 @@ if __name__ == '__main__':
     print(time.time() - t0 - acqtime)
     ctrl.ReadAll()
     print(ctrl.ReadOne(2))
+    return ctrl
+
+if __name__ == '__main__':
+    main()
