@@ -24,7 +24,7 @@ def test_scan(em, integration, repetitions, nb_starts, mode):
     em.acquisition_time = integration
     em.nb_points = repetitions * nb_starts
     em.timestamp_data = False
-    timeout = integration * 10
+    timeout = integration * 200
     data_ready = 0
 
     # Arm the electrometer
@@ -86,12 +86,19 @@ def main(host, port, nb_scans, integration, nb_points, mode, debug):
         nb_starts = 1
     else:
         raise ValueError('mode not allowed')
+    result = True
+    bad_test = 0
     for i in range(nb_scans):
-        log.info('Start scan %d: Integration %f, Repetitions %d, Starts %d, '
-                 'Mode %s', i, integration, repetitions, nb_starts, mode)
-        if not test_scan(em, integration, repetitions, nb_starts, mode):
+        if not result:
             log.info('Wait 2 seconds to recover system')
             time.sleep(2)
+        log.info('Start scan %d: Integration %f, Repetitions %d, Starts %d, '
+                 'Mode %s', i, integration, repetitions, nb_starts, mode)
+        result = test_scan(em, integration, repetitions, nb_starts, mode)
+        if not result:
+            bad_test += 1
+    log.info('-'*80)
+    log.info('Failures %d of %d', bad_test, nb_scans)
 
 
 if __name__ == '__main__':
