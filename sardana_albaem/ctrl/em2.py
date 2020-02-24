@@ -116,8 +116,11 @@ class Em2(object):
         logging.getLogger('sockio').setLevel(logging.INFO)
         self.log = logging.getLogger('em2.Em2({0}:{1})'.format(host, port))
         self.log.setLevel(logging.INFO)
-
         self.channels = [Channel(self, i) for i in range(1, 5)]
+
+        self.read_index_bug = True
+        if self.software_version > (2, 0):
+            self.read_index_bug = False
 
     def __getitem__(self, i):
         return self.channels[i]
@@ -142,6 +145,12 @@ class Em2(object):
     @property
     def idn(self):
         return self.command('*idn?')
+
+    @property
+    def software_version(self):
+        str_version = self.idn.split(',')[-1].strip()
+        version = tuple([int(x) for x in str_version.split('.')])
+        return version
 
     @property
     def acquisition_state(self):
@@ -245,7 +254,8 @@ class Em2(object):
         return AcquisitionData(self)
 
     def read(self, start_pos=0, nb=None):
-        start_pos -= 1
+        if self.read_index_bug:
+            start_pos -= 1
         cmd = 'ACQU:MEAS? {0}'.format(start_pos)
         if nb is not None:
             cmd += ',{0}'.format(nb)

@@ -7,7 +7,7 @@ from sardana.pool.controller import CounterTimerController, Type, Access, \
     Description, Memorize, Memorized, NotMemorized
 from sardana.sardanavalue import SardanaValue
 
-from em2 import Em2
+from sardana_albaem.ctrl.em2 import Em2
 
 
 __all__ = ['Albaem2CoTiCtrl']
