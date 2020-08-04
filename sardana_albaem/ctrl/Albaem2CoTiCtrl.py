@@ -29,15 +29,13 @@ class Albaem2CoTiCtrl(CounterTimerController):
             Description: 'AlbaEm Host name',
             Type: int
         },
+        'ExtTriggerInput': {
+            Description: 'ExtTriggerInput',
+            Type: str
+        },
     }
 
     ctrl_attributes = {
-        'ExtTriggerInput': {
-            Type: str,
-            Description: 'ExtTriggerInput',
-            Access: DataAccess.ReadWrite,
-            Memorize: Memorized
-        },
         'AcquisitionMode': {
             Type: str,
             # TODO define the modes names ?? (I_AVGCURR_A, Q_CHARGE_C)
@@ -132,7 +130,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
         # self._log.debug("StateOne(%d): Entering...", axis)
         return self.state, self.status
 
-    def LoadOne(self, axis, value, repetitions):
+    def LoadOne(self, axis, value, repetitions, latency_time):
         # self._log.debug("LoadOne(%d, %f, %d): Entering...", axis, value,
         #                 repetitions)
         if axis != 1:
@@ -166,7 +164,9 @@ class Albaem2CoTiCtrl(CounterTimerController):
             source = 'GATE'
             self._repetitions = repetitions
         self.sendCmd('TRIG:MODE %s' % source)
-
+        if self._synchronization in [AcqSynch.HardwareTrigger,
+                                     AcqSynch.HardwareGate]:
+            self.sendCmd('TRIG:INPU %s' % self.ExtTriggerInput)
         # Set Number of Triggers
         self.sendCmd('ACQU:NTRI %r' % self._repetitions)
 
@@ -268,7 +268,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
             retries = 2
             for i in range(retries):
                 try:
-                    self.albaem_socket.sendall(cmd)
+                    self.albaem_socket.sendall(cmd.encode())
                     break
                 except socket.timeout:
                     self._log.debug(
@@ -319,7 +319,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
                     retries = 5
                     for i in range(retries):
                         try:
-                            data += self.albaem_socket.recv(size)
+                            data += self.albaem_socket.recv(size).decode()
                             acquired = True
                             break
                         except socket.timeout:
@@ -330,7 +330,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
                                 socket.AF_INET, socket.SOCK_STREAM)
                             self.albaem_socket.settimeout(1)
                             self.albaem_socket.connect(self.ip_config)
-                            self.albaem_socket.sendall(cmd)
+                            self.albaem_socket.sendall(cmd.encode())
                             pass
 
                     if acquired == False:
@@ -398,18 +398,14 @@ class Albaem2CoTiCtrl(CounterTimerController):
 
     def SetCtrlPar(self, parameter, value):
         param = parameter.lower()
-        if param == 'exttriggerinput':
-            self.sendCmd('TRIG:INPU %s' % value)
-        elif param == 'acquisitionmode':
+        if param == 'acquisitionmode':
             self.sendCmd('ACQU:MODE %s' % value)
         else:
             CounterTimerController.SetCtrlPar(self, parameter, value)
 
     def GetCtrlPar(self, parameter):
         param = parameter.lower()
-        if param == 'exttriggerinput':
-            value = self.sendCmd('TRIG:INPU?')
-        elif param == 'acquisitionmode':
+        if param == 'acquisitionmode':
             value = self.sendCmd('ACQU:MODE?')
         else:
             value = CounterTimerController.GetCtrlPar(self, parameter)

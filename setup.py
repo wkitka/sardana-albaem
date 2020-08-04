@@ -26,7 +26,7 @@ def main():
     """Main method collecting all the parameters to setup."""
     name = "sardana-albaem"
 
-    version = "0.0.7"
+    version = "1.0.0"
 
     description = "AlbaEM Sardana Controller"
 
@@ -36,7 +36,7 @@ def main():
 
     license = "GPLv3"
 
-    url = "http://www.maxiv.lu.se"
+    url = "https://github.com/MaxIV-KitsControls/sardana-albaem"
 
     packages = find_packages()
 
