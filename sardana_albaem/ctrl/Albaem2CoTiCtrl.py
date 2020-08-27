@@ -181,6 +181,9 @@ class Albaem2CoTiCtrl(CounterTimerController):
             return False
 
         return True
+ 
+    def StartOne(self, axis, value=None):
+        pass
 
     def StartAllCT(self):
         """
