@@ -170,7 +170,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
         # Set Number of Triggers
         self.sendCmd('ACQU:NTRI %r' % self._repetitions)
 
-    def PreStartOneCT(self, axis):
+    def PreStartOne(self, axis, value=None):
         # self._log.debug("PreStartOneCT(%d): Entering...", axis)
         if axis != 1:
             self.index = 0
@@ -182,7 +182,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
 
         return True
 
-    def StartAllCT(self):
+    def StartAll(self):
         """
         Starting the acquisition is done only if before was called
         PreStartOneCT for master channel.
@@ -245,7 +245,7 @@ class Albaem2CoTiCtrl(CounterTimerController):
     def ReadOne(self, axis):
         # self._log.debug("ReadOne(%d): Entering...", axis)
         if len(self.new_data) == 0:
-            return None
+            return []
 
         if self._synchronization in [AcqSynch.SoftwareTrigger,
                                      AcqSynch.SoftwareGate]:
@@ -425,7 +425,7 @@ if __name__ == '__main__':
     ctrl._synchronization = AcqSynch.SoftwareTrigger
     # ctrl._synchronization = AcqSynch.HardwareTrigger
     acqtime = 1.1
-    ctrl.LoadOne(1, acqtime, 10)
+    ctrl.LoadOne(1, acqtime, 10, 0)
     ctrl.StartAllCT()
     t0 = time.time()
     ctrl.StateAll()
