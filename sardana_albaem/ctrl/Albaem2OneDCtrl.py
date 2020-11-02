@@ -262,8 +262,6 @@ class Albaem2OneDCtrl(OneDController):
         self.new_data = []
         self.new_data = [[] for index in range(0, 5)]
         data_ready = int(self.sendCmd('ACQU:NDAT?'))
-        while data_ready != self._repetitions:
-            data_ready = int(self.sendCmd('ACQU:NDAT?'))
         
         # THIS CONTROLLER IS NOT YET READY FOR TIMESTAMP DATA
         self.sendCmd('TMST 0')
