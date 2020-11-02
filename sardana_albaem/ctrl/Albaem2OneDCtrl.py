@@ -31,7 +31,7 @@ def debug_it(func):
     return wrapper
 
 
-def handle_error(func=None, msg="Error with DelayGeneratorCtrl"):
+def handle_error(func=None, msg="Error with Albaem2OneDCtrl"):
     if func is None:
         return partial(handle_error, msg=msg)
     else:
@@ -259,42 +259,31 @@ class Albaem2OneDCtrl(OneDController):
     @debug_it
     @handle_error(msg="ReadAll: Unable to read from the device!")
     def ReadAll(self):
+        self.new_data = []
+        self.new_data = [[] for index in range(0, 5)]
         data_ready = int(self.sendCmd('ACQU:NDAT?'))
-        # For multiple points per point
-        if self._repetitions > 1:
-            # Wait fo the buffer to fill up
-            start = datetime.datetime.now()
-            while data_ready != self._repetitions:
-                data_ready = int(self.sendCmd('ACQU:NDAT?'))
-                now = datetime.datetime.now()
-                elapsed = now - start
-                # Break if elapsed time is more than the integration time * points_per_step
-                if elapsed.milliseconds > (self.itime * self._repetitions) and data_ready < self._repetitions:
-                    break
-        if data_ready > 1:
-            # THIS CONTROLLER IS NOT YET READY FOR TIMESTAMP DATA
-            self.sendCmd('TMST 0')
+        while data_ready != self._repetitions:
+            data_ready = int(self.sendCmd('ACQU:NDAT?'))
+        
+        # THIS CONTROLLER IS NOT YET READY FOR TIMESTAMP DATA
+        self.sendCmd('TMST 0')
 
-            msg = 'ACQU:MEAS? %r,%r' % (-1, data_ready)
-            raw_data = self.sendCmd(msg)
+        msg = 'ACQU:MEAS? %r,%r' % (-1, data_ready)
+        raw_data = self.sendCmd(msg)
 
-            data = eval(raw_data)
-            axis = 1
-            for chn_name, values in data:
+        data = eval(raw_data)
+        axis = 1
+        for chn_name, values in data:
 
-                # Apply the formula for each value
-                formula = self.formulas[axis]
-                formula = formula.lower()
-                values_formula = [eval(formula, {'value': val}) for val
-                                    in values]
-                self.new_data[axis].extend(values_formula)
-                # Pad the missed triggered points with zeros
-                if len(self.new_data[axis]) < self._repetitions:
-                    missed_points = self._repetitions - len(self.new_data[axis])
-                    self.new_data[axis].extend([0.0] * (missed_points - len(self.new_data[axis])))
-                axis +=1
-            time_data = [self.itime] * len(self.new_data[1])
-            self.new_data[0] = (time_data)
+            # Apply the formula for each value
+            formula = self.formulas[axis]
+            formula = formula.lower()
+            values_formula = [eval(formula, {'value': val}) for val
+                                in values]
+            self.new_data[axis].extend(values_formula)
+            axis +=1
+        time_data = [self.itime] * len(self.new_data[1])
+        self.new_data[0] = (time_data)
 
 
     @debug_it
@@ -304,7 +293,7 @@ class Albaem2OneDCtrl(OneDController):
 
         if self._synchronization in [AcqSynch.SoftwareTrigger,
                                      AcqSynch.SoftwareGate]:
-            return SardanaValue(self.new_data[axis - 1][0])
+            return [self.new_data[axis - 1][0]]
         else:
             val = self.new_data[axis - 1]
             return [val]
