@@ -145,6 +145,11 @@ class Albaem2OneDCtrl(OneDController):
         """Delete device from the controller."""
         # self.albaem_socket.close()
         pass
+
+    @debug_it
+    def PrepareOne(self, axis, value, repetitions, latency, nb_starts):
+        self._is_aborted = False
+
     
     @debug_it
     def PreStateAll(self):
@@ -261,6 +266,9 @@ class Albaem2OneDCtrl(OneDController):
     def ReadAll(self):
         self.new_data = []
         self.new_data = [[] for index in range(0, 5)]
+        # Skip reading for aborted scans
+        if self._is_aborted:
+            return
         data_ready = int(self.sendCmd('ACQU:NDAT?'))
         
         # THIS CONTROLLER IS NOT YET READY FOR TIMESTAMP DATA
@@ -300,6 +308,7 @@ class Albaem2OneDCtrl(OneDController):
     @handle_error(msg="AbortOne: Could not abort device!")
     def AbortOne(self, axis):
         self.sendCmd('ACQU:STOP')
+        self._is_aborted = True
 
     @debug_it
     @handle_error(msg="sendCmd: Could not configure device!")
