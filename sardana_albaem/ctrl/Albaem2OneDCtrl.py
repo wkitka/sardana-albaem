@@ -14,11 +14,6 @@ import six
 
 __all__ = ['Albaem2OneDCtrl']
 
-TRIGGER_INPUTS = {'DIO_1': 0, 'DIO_2': 1, 'DIO_3': 2, 'DIO_4': 3,
-                  'DIFF_IO_1': 4, 'DIFF_IO_2': 5, 'DIFF_IO_3': 6,
-                  'DIFF_IO_4': 7, 'DIFF_IO_5': 8, 'DIFF_IO_6': 9,
-                  'DIFF_IO_7': 10, 'DIFF_IO_8': 11, 'DIFF_IO_9': 12}
-
 def debug_it(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
