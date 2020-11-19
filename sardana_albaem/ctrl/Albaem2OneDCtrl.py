@@ -150,7 +150,7 @@ class Albaem2OneDCtrl(OneDController):
     def PrepareOne(self, axis, value, repetitions, latency, nb_starts):
         self._is_aborted = False
 
-    
+
     @debug_it
     def PreStateAll(self):
         pass
@@ -188,7 +188,7 @@ class Albaem2OneDCtrl(OneDController):
 
         # Set Integration time in ms
         val = self.itime * 1000
-        if val < 0.1:   # minimum integration time 
+        if val < 0.1:   # minimum integration time
             self._log.debug("The minimum integration time is 0.1 ms")
             val = 0.1
         self.sendCmd('ACQU:TIME %r' % val)
@@ -214,9 +214,8 @@ class Albaem2OneDCtrl(OneDController):
             self.sendCmd('TRIG:INPU %s' % self.ExtTriggerInput)
         # Set Number of Triggers
         self.sendCmd('ACQU:NTRI %r' % self._repetitions)
-        
+
         # Array of arrays for ID readings from all channels
-        self.new_data = []
         self.new_data = [[] for index in range(0, 5)]
 
     @debug_it
@@ -264,13 +263,12 @@ class Albaem2OneDCtrl(OneDController):
     @debug_it
     @handle_error(msg="ReadAll: Unable to read from the device!")
     def ReadAll(self):
-        self.new_data = []
         self.new_data = [[] for index in range(0, 5)]
         # Skip reading for aborted scans
         if self._is_aborted:
             return
         data_ready = int(self.sendCmd('ACQU:NDAT?'))
-        
+
         # THIS CONTROLLER IS NOT YET READY FOR TIMESTAMP DATA
         self.sendCmd('TMST 0')
 
