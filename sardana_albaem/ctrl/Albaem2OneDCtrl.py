@@ -185,7 +185,7 @@ class Albaem2OneDCtrl(OneDController):
         val = self.itime * 1000
         if val < 0.1:   # minimum integration time
             self._log.debug("The minimum integration time is 0.1 ms")
-            val = 0.1
+            raise Exception('The minimum integration time is 0.1 ms')
         self.sendCmd('ACQU:TIME %r' % val)
 
         if self._synchronization in [AcqSynch.SoftwareTrigger,
