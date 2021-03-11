@@ -37,12 +37,6 @@ class Albaem2CoTiCtrl(CounterTimerController):
     }
 
     ctrl_attributes = {
-        #'ExtTriggerInput': {
-        #    Type: str,
-        #    Description: 'ExtTriggerInput',
-        #    Access: DataAccess.ReadWrite,
-        #    Memorize: Memorized
-        #},
         'AcquisitionMode': {
             Type: str,
             # TODO define the modes names ?? (I_AVGCURR_A, Q_CHARGE_C)
