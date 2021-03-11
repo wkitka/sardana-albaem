@@ -30,15 +30,19 @@ class Albaem2CoTiCtrl(CounterTimerController):
             Description: 'AlbaEm Host name',
             Type: int
         },
+        'ExtTriggerInput': {
+            Description: 'ExtTriggerInput',
+            Type: str
+        },
     }
 
     ctrl_attributes = {
-        'ExtTriggerInput': {
-            Type: str,
-            Description: 'ExtTriggerInput',
-            Access: DataAccess.ReadWrite,
-            Memorize: Memorized
-        },
+        #'ExtTriggerInput': {
+        #    Type: str,
+        #    Description: 'ExtTriggerInput',
+        #    Access: DataAccess.ReadWrite,
+        #    Memorize: Memorized
+        #},
         'AcquisitionMode': {
             Type: str,
             # TODO define the modes names ?? (I_AVGCURR_A, Q_CHARGE_C)
@@ -164,9 +168,11 @@ class Albaem2CoTiCtrl(CounterTimerController):
         elif self._synchronization == AcqSynch.HardwareTrigger:
             mode = 'HARDWARE'
             self._skipp_start = True
+            self._em2.command('TRIG:INPU %s' % self.ExtTriggerInput)
         elif self._synchronization == AcqSynch.HardwareGate:
             mode = 'GATE'
             self._skipp_start = True
+            self._em2.command('TRIG:INPU %s' % self.ExtTriggerInput)
 
         # Configure the electrometer
         self._em2.acquisition_time = self._acq_time
@@ -176,7 +182,10 @@ class Albaem2CoTiCtrl(CounterTimerController):
         self._em2.timestamp_data = False
 
         # Arm the electromter
-        self._em2.start_acquisition(soft_trigger=False)
+        if mode == 'SOFTWARE':
+            self._em2.start_acquisition(soft_trigger=True)
+        else:
+            self._em2.start_acquisition(soft_trigger=False)
 
     def LoadOne(self, axis, integ_time, repetitions, latency_time):
         # Configure the electrometer on the PrepareOne
@@ -328,3 +337,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
